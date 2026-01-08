@@ -1,4 +1,7 @@
 # See Leader Zombies
+Download this mod on modrinth!
+link will be here soon
+
 In the recent snapshot versions of 26.1, a long lasting [bug](https://bugs.mojang.com/browse/MC/issues/MC-219981) that causes the zombie leaders not have their maximum health. This has now been **fixed**, and this mod helps you reliably identify which of the zombies are leader zombies with a glowing effect.
 
 ## Characteristics of leader zombie
