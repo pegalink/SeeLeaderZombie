@@ -1,5 +1,4 @@
 {
-  "itemGroup.seeleaderzombie": "Config tab alpha",
-  "block.seeleaderzombie.example_block": "Example Block",
-  "item.seeleaderzombie.example_item": "Example Item"
+  "seeleaderzombie.configuration.enableLeaderZombies": "Leader zombies",
+  "seeleaderzombie.configuration.logging": "Logging"
 }
