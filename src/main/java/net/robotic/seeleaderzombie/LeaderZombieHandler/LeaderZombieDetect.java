@@ -6,6 +6,8 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.zombie.Zombie;
+import net.minecraft.world.entity.monster.zombie.Drowned;
+import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
@@ -23,16 +25,16 @@ public class LeaderZombieDetect {
     public void onServerStarting(ServerStartingEvent event) {
         event.getServer().getAllLevels().forEach(world -> {
             world.getAllEntities().forEach(entity -> {
-                if (entity instanceof Zombie zombie && isLeaderZombie(zombie)) {
+                if ((entity instanceof Zombie || entity instanceof Drowned || entity instanceof ZombifiedPiglin) && isLeaderZombie((LivingEntity) entity)) {
                     if (!Config.enableLeaderZombies) {
-                        zombie.discard();
+                        entity.discard();
                         if (Config.logging) {
-                            LOGGER.info("Removed a zombie leader due to configuration settings. Leader was at: \\{}", zombie.blockPosition());
+                            LOGGER.info("Removed a zombie leader due to configuration settings. Leader was at: \\{}", entity.blockPosition());
                         }
                     } else {
-                        giveGlowingEffect(zombie);
+                        giveGlowingEffect((LivingEntity) entity);
                         if (Config.logging) {
-                            LOGGER.info("Detected an existing leader zombie at server start at: \\{}", zombie.blockPosition());
+                            LOGGER.info("Detected an existing leader zombie at server start at: \\{}", entity.blockPosition());
                         }
                     }
                 }
@@ -45,31 +47,40 @@ public class LeaderZombieDetect {
 
     @SubscribeEvent
     public void onEntitySpawn(EntityJoinLevelEvent event) {
-        if (event.getEntity() instanceof Zombie zombie && isLeaderZombie(zombie)) {
+        LivingEntity entity = null;
+        if (event.getEntity() instanceof Zombie zombie) {
+            entity = zombie;
+        } else if (event.getEntity() instanceof Drowned drowned) {
+            entity = drowned;
+        } else if (event.getEntity() instanceof ZombifiedPiglin zombifiedPiglin) {
+            entity = zombifiedPiglin;
+        }
+        
+        if (entity != null && isLeaderZombie(entity)) {
             if (!Config.enableLeaderZombies) {
-                zombie.discard();
+                entity.discard();
                 if (Config.logging) {
-                    LOGGER.info("Removed a zombie leader due to configuration settings. Leader was spawned at: \\{}", zombie.blockPosition());
+                    LOGGER.info("Removed a zombie leader due to configuration settings. Leader was spawned at: \\{}", entity.blockPosition());
                 }
             } else {
-                giveGlowingEffect(zombie);
+                giveGlowingEffect(entity);
                 if (Config.logging) {
-                    LOGGER.info("Detected a leader zombie spawned at: \\{}", zombie.blockPosition());
+                    LOGGER.info("Detected a leader zombie spawned at: \\{}", entity.blockPosition());
                 }
             }
         }
     }
 
-    public static boolean isLeaderZombieStatic(Zombie zombie) {
-        if (zombie.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE) != null) {
-            return Objects.requireNonNull(zombie.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE)).getValue()
+    public static boolean isLeaderZombieStatic(LivingEntity entity) {
+        if (entity.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE) != null) {
+            return Objects.requireNonNull(entity.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE)).getValue()
                     > LEADER_REINFORCEMENT_THRESHOLD;
         }
         return false;
     }
 
-    public boolean isLeaderZombie(Zombie zombie) {
-        return isLeaderZombieStatic(zombie);
+    public boolean isLeaderZombie(LivingEntity entity) {
+        return isLeaderZombieStatic(entity);
     }
 
     private static void giveGlowingEffect(LivingEntity entity) {
