@@ -18,10 +18,6 @@ PROJECTS=(
     "SeeLeaderZombie-NeoForge-26.1.1"
     "SeeLeaderZombie-NeoForge-26.1.2"
     "SeeLeaderZombie-NeoForge-26.2"
-    "SeeLeaderZombie-Fabric-26.1"
-    "SeeLeaderZombie-Fabric-26.1.1"
-    "SeeLeaderZombie-Fabric-26.1.2"
-    "SeeLeaderZombie-Fabric-26.2"
 )
 
 for proj in "${PROJECTS[@]}"; do
