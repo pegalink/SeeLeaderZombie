@@ -1,0 +1,53 @@
+name: Build All Minecraft Mod Variants
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make build script executable
+        run: |
+          if [ -f "./SeeLeaderZombie-main/build_all.sh" ]; then
+            chmod +x ./SeeLeaderZombie-main/build_all.sh
+          fi
+          if [ -f "./build_all.sh" ]; then
+            chmod +x ./build_all.sh
+          fi
+
+      - name: Run Build All Script
+        run: |
+          if [ -f "./SeeLeaderZombie-main/build_all.sh" ]; then
+            ./SeeLeaderZombie-main/build_all.sh
+          elif [ -f "./build_all.sh" ]; then
+            ./build_all.sh
+          else
+            echo "build_all.sh not found!"
+            exit 1
+          fi
+
+      - name: Upload Compiled JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeeLeaderZombie-Mod-JARs
+          path: |
+            builds/*.jar
+            **/build/libs/*.jar
