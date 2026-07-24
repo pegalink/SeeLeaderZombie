@@ -17,8 +17,10 @@ public final class LeaderZombieConfigSync {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static boolean isSupportedLeaderMob(LivingEntity entity) {
-        EntityType<?> type = entity.getType();
-        return type == EntityType.ZOMBIE || type == EntityType.DROWNED || type == EntityType.ZOMBIFIED_PIGLIN;
+        var key = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        if (key == null) return false;
+        String path = key.getPath();
+        return path.equals("zombie") || path.equals("drowned") || path.equals("zombified_piglin");
     }
 
     public static void onConfigReloaded(ModConfigEvent.Reloading event) {
