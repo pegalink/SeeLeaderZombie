@@ -28,7 +28,7 @@ public class Seeleaderzombie {
         NeoForge.EVENT_BUS.register(new LeaderZombieDetect());
         modEventBus.addListener(LeaderZombieConfigSync::onConfigReloaded);
 
-        if (FMLEnvironment.dist == Dist.CLIENT) {
+        if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modContainer.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         }
     }

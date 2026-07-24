@@ -19,7 +19,7 @@ All projects are engineered for dual environment execution:
 
 1. **Logical Side Safety (NeoForge)**:
    - `EntityJoinLevelEvent` checks `if (event.getLevel().isClientSide()) return;` so attribute inspection, entity healing, glowing effects, and entity removal ONLY occur on the server side (Integrated Server in Singleplayer or Dedicated Server in Multiplayer).
-   - GUI configuration extension points are registered via `FMLEnvironment.dist == Dist.CLIENT` inside the constructor, preventing dedicated servers from crashing with `ClassNotFoundException` when loading client GUI classes.
+   - GUI configuration extension points are registered via `FMLEnvironment.getDist() == Dist.CLIENT` inside the constructor, preventing dedicated servers from crashing with `ClassNotFoundException` when loading client GUI classes.
    - `@Mod` annotation removed from `ConfigClient` to prevent duplicate mod initialization errors on server startup.
 
 2. **Logical Side Safety (Fabric)**:
