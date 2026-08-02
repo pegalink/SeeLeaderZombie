@@ -92,6 +92,17 @@ These were fixed while merging the eight copies; they applied to some or all of 
 
 The Fabric variants were excluded from CI because they did not build. The causes:
 
+- **The Gradle wrapper was too old.** Fabric Loom 1.17.x declares
+  `org.gradle.plugin.api-version` 9.5.0, and the wrapper pinned Gradle 9.2.1, so Loom could not
+  be resolved at all:
+
+  ```
+  No matching variant of net.fabricmc:fabric-loom:1.17.17 was found ...
+    - Variant 'runtimeElements' ... attribute 'org.gradle.plugin.api-version' with value '9.5.0'
+      and the consumer needed ... value '9.2.1'
+  ```
+
+  The wrapper is on 9.6.1 now, with the distribution checksum pinned.
 - `org.gradle.configuration-cache=true` — Loom does not support Gradle's configuration cache.
   It is off at the root now.
 - `loom { splitEnvironmentSourceSets() }` with no `src/client` source set, while registering
@@ -107,16 +118,21 @@ The Fabric variants were excluded from CI because they did not build. The causes
 ```bash
 ./gradlew build                       # default version (26.1.2), both loaders
 ./gradlew build -Pmc=26.2             # a specific version, both loaders
-./gradlew :neoforge:build -Pmc=26.1   # one loader, one version
+./gradlew :neoforge:build -Pmc=26.1 -Ploaders=neoforge   # one loader, one version
 ./gradlew supportedVersions           # list supported versions
 ./build_all.sh                        # all 8 variants -> builds/
 ./build_all.sh --loader fabric        # one loader, every version
 ```
 
 Loader plugin versions (`moddev_version`, `loom_version`) live in the root `gradle.properties`
-and can be overridden per invocation, e.g. `-Ploom_version=1.17.17`.
+and can be overridden per invocation, e.g. `-Ploom_version=1.17.17`. The wrapper must stay at
+Gradle 9.5.0 or newer for Loom 1.17.x.
 
-CI builds all eight combinations in parallel with `fail-fast: false`, so one broken combination
-does not hide the state of the others.
+`-Ploaders=<loader>` controls which loader projects are included in the build. Gradle configures
+every included project, so without it a NeoForge-only build still has to resolve the Fabric Loom
+plugin — which is how the Loom/Gradle version mismatch above failed the NeoForge jobs as well as
+the Fabric ones. `build_all.sh` and each CI matrix job pass it, so the eight combinations are
+genuinely independent; combined with `fail-fast: false`, one broken combination cannot hide the
+state of the others.
 
 > **JDK Requirement:** Java 25.

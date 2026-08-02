@@ -92,7 +92,9 @@ for version in "${versions[@]}"; do
         # collect what this run produced.
         rm -rf "${ROOT_DIR}/${loader}/build/libs"
 
-        if ./gradlew ":${loader}:build" -Pmc="${version}" --no-daemon; then
+        # -Ploaders keeps each variant independent: a problem with one loader's Gradle plugin
+        # cannot fail the other loader's build.
+        if ./gradlew ":${loader}:build" -Pmc="${version}" -Ploaders="${loader}" --no-daemon; then
             find "${ROOT_DIR}/${loader}/build/libs" -maxdepth 1 -name '*.jar' \
                 ! -name '*-sources.jar' ! -name '*-javadoc.jar' \
                 -exec cp {} "${OUTPUT_DIR}/" \;
