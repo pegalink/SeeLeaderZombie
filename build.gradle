@@ -1,0 +1,53 @@
+/*
+ * Root build for every SeeLeaderZombie variant.
+ *
+ * There is one copy of the sources (common/, neoforge/, fabric/) and one file per supported
+ * Minecraft version under versions/. Selecting a version loads that file's properties into
+ * every project, so a build looks like:
+ *
+ *     ./gradlew build                       # the default version, both loaders
+ *     ./gradlew build -Pmc=26.2             # a specific version, both loaders
+ *     ./gradlew :fabric:build -Pmc=26.1.1   # one loader, one version
+ *     ./build_all.sh                        # every loader x every version
+ */
+
+def availableVersions() {
+    def dir = rootProject.file('versions')
+    def files = dir.listFiles()
+    if (files == null) {
+        throw new GradleException("Missing versions/ directory at ${dir}")
+    }
+    return files.findAll { it.name.endsWith('.properties') }
+            .collect { it.name - '.properties' }
+            .sort()
+}
+
+def selectedVersion = (project.findProperty('mc') ?: project.property('default_minecraft_version')).toString()
+def versionFile = rootProject.file("versions/${selectedVersion}.properties")
+
+if (!versionFile.isFile()) {
+    throw new GradleException(
+            "Unknown Minecraft version '${selectedVersion}'. Supported: ${availableVersions().join(', ')}.\n" +
+            "Pass one with -Pmc=<version>, or add versions/${selectedVersion}.properties to support it.")
+}
+
+def versionProperties = new Properties()
+versionFile.withInputStream { versionProperties.load(it) }
+
+allprojects {
+    // Every per-version coordinate (Minecraft, NeoForge, Fabric API, dependency ranges) reaches
+    // the build only through here, so adding a Minecraft version never means editing a build file.
+    ext.mc = selectedVersion
+    versionProperties.each { key, value -> ext.set(key.toString(), value.toString()) }
+}
+
+tasks.register('supportedVersions') {
+    group = 'help'
+    description = 'Lists the Minecraft versions this repository can build.'
+    def versions = availableVersions()
+    def current = selectedVersion
+    doLast {
+        println "Supported Minecraft versions: ${versions.join(', ')}"
+        println "Currently selected: ${current} (override with -Pmc=<version>)"
+    }
+}
