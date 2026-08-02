@@ -7,6 +7,7 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.permissions.Permissions;
 import net.robotic.seeleaderzombie.SeeLeaderZombieMod;
 import net.robotic.seeleaderzombie.config.ModConfig;
 import net.robotic.seeleaderzombie.core.LeaderZombies;
@@ -20,15 +21,15 @@ import net.robotic.seeleaderzombie.core.LeaderZombies;
  */
 public final class SeeLeaderZombieCommand {
 
-    /** Same level vanilla requires for /gamerule - operators only. */
-    private static final int PERMISSION_LEVEL = 2;
-
     private SeeLeaderZombieCommand() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // Minecraft 26.x replaced CommandSourceStack.hasPermission(int) with named permissions
+        // reached through permissions(). Moderator covers operators, which is the right bar for
+        // changing how mobs behave on a server.
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(LeaderZombies.MOD_ID)
-                .requires(source -> source.hasPermission(PERMISSION_LEVEL));
+                .requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR));
 
         root.then(Commands.literal("reload").executes(SeeLeaderZombieCommand::reload));
         root.then(Commands.literal("status").executes(SeeLeaderZombieCommand::status));
