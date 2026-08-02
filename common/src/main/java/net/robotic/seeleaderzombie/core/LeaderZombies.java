@@ -2,7 +2,6 @@ package net.robotic.seeleaderzombie.core;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -46,7 +45,9 @@ public final class LeaderZombies {
 
     /** True if this entity is a mob type that vanilla can spawn as a leader. */
     public static boolean isLeaderCapable(LivingEntity entity) {
-        ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        // Inferred: the registry key type has moved between Minecraft versions, and naming it
+        // here would tie this shared file to one of them.
+        var key = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         return key != null && LEADER_CAPABLE_MOBS.contains(key.getPath());
     }
 
