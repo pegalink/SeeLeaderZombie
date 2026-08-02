@@ -1,62 +1,117 @@
 #!/usr/bin/env bash
-set -e
+#
+# Builds every SeeLeaderZombie variant (each loader x each supported Minecraft version)
+# from the single source tree and gathers the jars into builds/.
+#
+#   ./build_all.sh                              # everything
+#   ./build_all.sh --loader fabric              # one loader, every version
+#   ./build_all.sh --mc 26.1.2 --mc 26.2        # every loader, selected versions
+#
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PARENT_DIR="$(dirname "${SCRIPT_DIR}")"
-BUILDS_DIR="${PARENT_DIR}/builds"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${ROOT_DIR}"
 
-mkdir -p "${BUILDS_DIR}"
+OUTPUT_DIR="${ROOT_DIR}/builds"
+ALL_LOADERS=(neoforge fabric)
 
-echo "=========================================="
-echo " Building all SeeLeaderZombie mod variants"
-echo " Target Output: ${BUILDS_DIR}"
-echo "=========================================="
-
-PROJECTS=(
-    "SeeLeaderZombie-main"
-    "SeeLeaderZombie-NeoForge-26.1"
-    "SeeLeaderZombie-NeoForge-26.1.1"
-    "SeeLeaderZombie-NeoForge-26.1.2"
-    "SeeLeaderZombie-NeoForge-26.2"
+mapfile -t ALL_VERSIONS < <(
+    find versions -maxdepth 1 -name '*.properties' -printf '%f\n' | sed 's/\.properties$//' | sort -V
 )
 
-for proj in "${PROJECTS[@]}"; do
-    PROJ_PATH="${PARENT_DIR}/${proj}"
-    if [ -d "${PROJ_PATH}" ]; then
-        echo ""
-        echo "--> Building ${proj}..."
-        # Ensure Gradle wrapper is present in the project directory
-        if [ ! -f "${PROJ_PATH}/gradlew" ] && [ -f "${SCRIPT_DIR}/gradlew" ]; then
-            cp "${SCRIPT_DIR}/gradlew" "${PROJ_PATH}/"
-            [ -f "${SCRIPT_DIR}/gradlew.bat" ] && cp "${SCRIPT_DIR}/gradlew.bat" "${PROJ_PATH}/"
-            [ -d "${SCRIPT_DIR}/gradle" ] && cp -r "${SCRIPT_DIR}/gradle" "${PROJ_PATH}/"
-        fi
+if [ ${#ALL_VERSIONS[@]} -eq 0 ]; then
+    echo "Error: no version definitions found in versions/" >&2
+    exit 1
+fi
 
-        cd "${PROJ_PATH}"
-        if [ -f "./gradlew" ]; then
-            chmod +x gradlew || true
-            ./gradlew build --no-daemon
-        elif [ -f "${SCRIPT_DIR}/gradlew" ]; then
-            chmod +x "${SCRIPT_DIR}/gradlew" || true
-            "${SCRIPT_DIR}/gradlew" build --no-daemon
-        elif command -v gradle >/dev/null 2>&1; then
-            gradle build
-        else
-            echo "Error: Neither gradlew wrapper nor system 'gradle' command was found."
-            exit 1
-        fi
-        
-        if [ -d "build/libs" ]; then
-            find build/libs -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" -exec cp {} "${BUILDS_DIR}/" \;
-        fi
-    else
-        echo "Warning: Directory ${proj} not found, skipping."
+loaders=()
+versions=()
+
+usage() {
+    cat >&2 <<EOF
+Usage: $(basename "$0") [--loader <${ALL_LOADERS[*]}>]... [--mc <version>]...
+
+Supported Minecraft versions: ${ALL_VERSIONS[*]}
+With no arguments, every loader is built for every version.
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --loader)
+            [ $# -ge 2 ] || { echo "Error: --loader needs a value" >&2; exit 1; }
+            loaders+=("$2"); shift 2 ;;
+        --mc)
+            [ $# -ge 2 ] || { echo "Error: --mc needs a value" >&2; exit 1; }
+            versions+=("$2"); shift 2 ;;
+        -h|--help)
+            usage; exit 0 ;;
+        *)
+            echo "Error: unknown argument '$1'" >&2; usage; exit 1 ;;
+    esac
+done
+
+[ ${#loaders[@]} -eq 0 ] && loaders=("${ALL_LOADERS[@]}")
+[ ${#versions[@]} -eq 0 ] && versions=("${ALL_VERSIONS[@]}")
+
+for loader in "${loaders[@]}"; do
+    if [ ! -d "${ROOT_DIR}/${loader}" ]; then
+        echo "Error: unknown loader '${loader}' (expected one of: ${ALL_LOADERS[*]})" >&2
+        exit 1
     fi
+done
+
+for version in "${versions[@]}"; do
+    if [ ! -f "${ROOT_DIR}/versions/${version}.properties" ]; then
+        echo "Error: unknown Minecraft version '${version}' (expected one of: ${ALL_VERSIONS[*]})" >&2
+        exit 1
+    fi
+done
+
+if [ ! -x ./gradlew ]; then
+    chmod +x ./gradlew
+fi
+
+mkdir -p "${OUTPUT_DIR}"
+
+echo "=========================================="
+echo " Building SeeLeaderZombie"
+echo " Loaders:  ${loaders[*]}"
+echo " Versions: ${versions[*]}"
+echo " Output:   ${OUTPUT_DIR}"
+echo "=========================================="
+
+failures=()
+
+for version in "${versions[@]}"; do
+    for loader in "${loaders[@]}"; do
+        echo ""
+        echo "--> ${loader} / Minecraft ${version}"
+
+        # Each variant reuses the same build directory, so clear the jars first and only
+        # collect what this run produced.
+        rm -rf "${ROOT_DIR}/${loader}/build/libs"
+
+        if ./gradlew ":${loader}:build" -Pmc="${version}" --no-daemon; then
+            find "${ROOT_DIR}/${loader}/build/libs" -maxdepth 1 -name '*.jar' \
+                ! -name '*-sources.jar' ! -name '*-javadoc.jar' \
+                -exec cp {} "${OUTPUT_DIR}/" \;
+        else
+            echo "!!! FAILED: ${loader} / ${version}" >&2
+            failures+=("${loader}/${version}")
+        fi
+    done
 done
 
 echo ""
 echo "=========================================="
-echo " Build process completed!"
-echo " Compiled JARs gathered in: ${BUILDS_DIR}"
+if [ ${#failures[@]} -gt 0 ]; then
+    echo " Build finished with failures: ${failures[*]}"
+else
+    echo " Build process completed successfully!"
+fi
+echo " Compiled JARs gathered in: ${OUTPUT_DIR}"
 echo "=========================================="
-ls -la "${BUILDS_DIR}"
+ls -la "${OUTPUT_DIR}"
+
+[ ${#failures[@]} -eq 0 ]

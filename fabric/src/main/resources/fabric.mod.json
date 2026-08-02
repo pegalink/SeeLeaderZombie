@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "${mod_authors}"
+  ],
+  "contact": {
+    "sources": "${mod_sources}",
+    "issues": "${mod_sources}/issues"
+  },
+  "license": "GPL-3.0-or-later",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.robotic.seeleaderzombie.SeeLeaderZombieMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": "${fabric_loader_dependency}",
+    "fabric-api": "*",
+    "minecraft": ${fabric_minecraft_dependency},
+    "java": ">=${java_version}"
+  }
+}
