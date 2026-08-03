@@ -35,9 +35,13 @@ loom {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // No "mappings" line and plain "implementation" rather than "modImplementation": Minecraft
+    // 26.x ships unobfuscated, so there is nothing to remap. Loom rejects
+    // loom.officialMojangMappings() outright with "Cannot use Mojang mappings in a
+    // non-obfuscated environment".
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
 // fabric.mod.json is templated so its Minecraft/loader ranges come from versions/<mc>.properties.

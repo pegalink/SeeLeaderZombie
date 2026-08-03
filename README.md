@@ -58,10 +58,14 @@ version numbers live.
 ```bash
 ./gradlew build                       # default Minecraft version (26.1.2), both loaders
 ./gradlew build -Pmc=26.2             # a specific version, both loaders
-./gradlew :fabric:build -Pmc=26.1.1   # one loader, one version
+./gradlew :fabric:build -Pmc=26.1.1 -Ploaders=fabric   # one loader, one version
 ./gradlew supportedVersions           # list what can be built
 ./build_all.sh                        # every loader x every version, jars gathered in builds/
 ```
+
+`-Ploaders` narrows which loader projects are part of the build at all. It is optional — leave it
+off and both are built — but passing it keeps the loaders independent, so a problem with one
+loader's Gradle plugin cannot fail the other's build.
 
 Jars are named `seeleaderzombie-<loader>-<minecraft>-<mod version>.jar`, so all eight can sit in
 one folder. Supporting a new Minecraft version means adding one file to `versions/` — no source

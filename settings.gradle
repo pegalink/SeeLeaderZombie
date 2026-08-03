@@ -26,5 +26,22 @@ plugins {
 
 rootProject.name = 'SeeLeaderZombie'
 
-include 'neoforge'
-include 'fabric'
+// Gradle configures every included project, so without this a NeoForge-only build would still
+// have to resolve the Fabric Loom plugin - and a problem with one loader would fail the other's
+// build. CI passes -Ploaders=<loader> so each matrix job stands on its own.
+def knownLoaders = ['neoforge', 'fabric']
+def requestedLoaders = (settings.startParameter.projectProperties.get('loaders') ?: knownLoaders.join(','))
+        .split(',')
+        .collect { it.trim() }
+        .findAll { !it.isEmpty() }
+
+if (requestedLoaders.isEmpty()) {
+    throw new GradleException("-Ploaders was empty. Supported loaders: ${knownLoaders.join(', ')}.")
+}
+
+requestedLoaders.each { loader ->
+    if (!knownLoaders.contains(loader)) {
+        throw new GradleException("Unknown loader '${loader}'. Supported: ${knownLoaders.join(', ')}.")
+    }
+    include loader
+}

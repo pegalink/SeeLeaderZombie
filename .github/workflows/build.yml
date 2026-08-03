@@ -32,8 +32,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # -Ploaders limits the build to this job's loader, so a problem with one loader cannot
+      # fail the other loader's jobs.
       - name: Build
-        run: ./gradlew ":${{ matrix.loader }}:build" -Pmc=${{ matrix.minecraft }} --stacktrace
+        run: >
+          ./gradlew ":${{ matrix.loader }}:build"
+          -Pmc=${{ matrix.minecraft }}
+          -Ploaders=${{ matrix.loader }}
+          --stacktrace
 
       - name: Upload Compiled JAR
         uses: actions/upload-artifact@v4
