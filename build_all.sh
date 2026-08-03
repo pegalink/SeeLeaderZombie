@@ -27,6 +27,25 @@ fi
 loaders=()
 versions=()
 
+# Not every Minecraft version has both loaders - each version file says which ones it builds.
+loaders_for_version() {
+    local declared
+    declared=$(sed -n 's/^loaders=//p' "${ROOT_DIR}/versions/$1.properties" | tail -n 1)
+    if [ -z "${declared}" ]; then
+        echo "${ALL_LOADERS[@]}"
+    else
+        echo "${declared}" | tr ',' ' '
+    fi
+}
+
+version_supports_loader() {
+    local supported
+    for supported in $(loaders_for_version "$1"); do
+        [ "${supported}" = "$2" ] && return 0
+    done
+    return 1
+}
+
 usage() {
     cat >&2 <<EOF
 Usage: $(basename "$0") [--loader <${ALL_LOADERS[*]}>]... [--mc <version>]...
@@ -85,6 +104,12 @@ failures=()
 
 for version in "${versions[@]}"; do
     for loader in "${loaders[@]}"; do
+        if ! version_supports_loader "${version}" "${loader}"; then
+            echo ""
+            echo "--> skipping ${loader} / Minecraft ${version} (that version builds for: $(loaders_for_version "${version}"))"
+            continue
+        fi
+
         echo ""
         echo "--> ${loader} / Minecraft ${version}"
 

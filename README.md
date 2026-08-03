@@ -16,14 +16,19 @@ Becasue some people like me like to know when I am fighting against a quite the 
 
 ## Supported versions
 
-Both loaders are supported on every version, in singleplayer and on dedicated servers.
+Supported in singleplayer and on dedicated servers.
 
-| Minecraft | NeoForge         | Fabric API      |
-|-----------|------------------|-----------------|
-| 26.1      | `26.1.0.19-beta` | `0.145.1+26.1`  |
-| 26.1.1    | `26.1.1.15-beta` | `0.155.2+26.1.1`|
-| 26.1.2    | `26.1.2.84`      | `0.155.2+26.1.2`|
-| 26.2      | `26.2.0.32-beta` | `0.155.2+26.2`  |
+| Minecraft         | NeoForge         | Fabric API       |
+|-------------------|------------------|------------------|
+| 26.1              | `26.1.0.19-beta` | `0.145.1+26.1`   |
+| 26.1.1            | `26.1.1.15-beta` | `0.145.4+26.1.1` |
+| 26.1.2            | `26.1.2.84`      | `0.155.2+26.1.2` |
+| 26.2              | `26.2.0.32-beta` | `0.155.2+26.2`   |
+| 26.3-snapshot-6   | —                | `0.156.1+26.3`   |
+
+26.3 is a snapshot, so it is Fabric only — NeoForge publishes no builds for snapshots. The
+Fabric jar for it is pinned to that exact snapshot rather than a range, because a later
+snapshot can change the API again.
 
 ## Configuration
 
@@ -56,20 +61,27 @@ One source tree builds every variant. `versions/<minecraft>.properties` is the o
 version numbers live.
 
 ```bash
-./gradlew build                       # default Minecraft version (26.1.2), both loaders
-./gradlew build -Pmc=26.2             # a specific version, both loaders
+./gradlew build                                        # default version (26.1.2), its loaders
+./gradlew build -Pmc=26.2                              # a specific version
+./gradlew build -Pmc=26.3-snapshot-6                   # Fabric only, and the build knows that
 ./gradlew :fabric:build -Pmc=26.1.1 -Ploaders=fabric   # one loader, one version
-./gradlew supportedVersions           # list what can be built
-./build_all.sh                        # every loader x every version, jars gathered in builds/
+./gradlew supportedVersions                            # list what can be built
+./build_all.sh                                         # every supported pair -> builds/
 ```
 
 `-Ploaders` narrows which loader projects are part of the build at all. It is optional — leave it
-off and both are built — but passing it keeps the loaders independent, so a problem with one
-loader's Gradle plugin cannot fail the other's build.
+off and every loader the selected version supports is built — but passing it keeps the loaders
+independent, so a problem with one loader's Gradle plugin cannot fail the other's build. Asking
+for a loader a version does not have fails with a clear message rather than a confusing one:
 
-Jars are named `seeleaderzombie-<loader>-<minecraft>-<mod version>.jar`, so all eight can sit in
-one folder. Supporting a new Minecraft version means adding one file to `versions/` — no source
-or build script changes. See [PORT_NOTES.md](PORT_NOTES.md) for the layout.
+```
+> neoforge does not support Minecraft 26.3-snapshot-6. That version builds for: fabric.
+```
+
+Jars are named `seeleaderzombie-<loader>-<minecraft>-<mod version>.jar`, so they can all sit in
+one folder. Supporting a new Minecraft version means adding one file to `versions/` — no source,
+build script or CI changes, including when only one loader has that version. See
+[PORT_NOTES.md](PORT_NOTES.md) for the layout.
 
 > **JDK requirement:** Java 25.
 

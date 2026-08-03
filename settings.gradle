@@ -26,22 +26,79 @@ plugins {
 
 rootProject.name = 'SeeLeaderZombie'
 
-// Gradle configures every included project, so without this a NeoForge-only build would still
-// have to resolve the Fabric Loom plugin - and a problem with one loader would fail the other's
-// build. CI passes -Ploaders=<loader> so each matrix job stands on its own.
+// The selected Minecraft version and its loaders are resolved here, before any project is
+// configured, because which projects exist at all depends on them. build.gradle reads the
+// results back off gradle.ext so the version files are only parsed once.
+
 def knownLoaders = ['neoforge', 'fabric']
-def requestedLoaders = (settings.startParameter.projectProperties.get('loaders') ?: knownLoaders.join(','))
-        .split(',')
-        .collect { it.trim() }
-        .findAll { !it.isEmpty() }
+
+def splitList = { value ->
+    value.toString().split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+}
+
+def gradleProperty = { String name ->
+    settings.startParameter.projectProperties.get(name)
+            ?: settings.providers.gradleProperty(name).getOrNull()
+}
+
+def versionsDir = new File(settings.rootDir, 'versions')
+def availableVersions = (versionsDir.listFiles() ?: new File[0])
+        .findAll { it.name.endsWith('.properties') }
+        .collect { it.name - '.properties' }
+        .sort()
+
+if (availableVersions.isEmpty()) {
+    throw new GradleException("No version definitions found in ${versionsDir}.")
+}
+
+def selectedVersion = (gradleProperty('mc') ?: gradleProperty('default_minecraft_version')).toString()
+def versionFile = new File(versionsDir, "${selectedVersion}.properties")
+
+if (!versionFile.isFile()) {
+    throw new GradleException(
+            "Unknown Minecraft version '${selectedVersion}'. Supported: ${availableVersions.join(', ')}.\n" +
+            "Pass one with -Pmc=<version>, or add versions/${selectedVersion}.properties to support it.")
+}
+
+def versionProperties = new Properties()
+versionFile.withInputStream { versionProperties.load(it) }
+
+// Not every Minecraft version has both loaders - NeoForge publishes nothing for snapshots, for
+// instance - so each version file says which ones it can build.
+def supportedLoaders = splitList(versionProperties.getProperty('loaders') ?: knownLoaders.join(','))
+
+supportedLoaders.each { loader ->
+    if (!knownLoaders.contains(loader)) {
+        throw new GradleException(
+                "versions/${selectedVersion}.properties lists unknown loader '${loader}'. " +
+                "Known loaders: ${knownLoaders.join(', ')}.")
+    }
+}
+
+// Gradle configures every included project, so without narrowing this a NeoForge-only build
+// would still have to resolve the Fabric Loom plugin - and a problem with one loader would fail
+// the other's build. CI passes -Ploaders=<loader> so each matrix job stands on its own.
+def requestedProperty = gradleProperty('loaders')
+def requestedLoaders = requestedProperty == null ? supportedLoaders : splitList(requestedProperty)
 
 if (requestedLoaders.isEmpty()) {
-    throw new GradleException("-Ploaders was empty. Supported loaders: ${knownLoaders.join(', ')}.")
+    throw new GradleException("-Ploaders was empty. Known loaders: ${knownLoaders.join(', ')}.")
 }
 
 requestedLoaders.each { loader ->
     if (!knownLoaders.contains(loader)) {
-        throw new GradleException("Unknown loader '${loader}'. Supported: ${knownLoaders.join(', ')}.")
+        throw new GradleException("Unknown loader '${loader}'. Known loaders: ${knownLoaders.join(', ')}.")
     }
-    include loader
+    if (!supportedLoaders.contains(loader)) {
+        throw new GradleException(
+                "${loader} does not support Minecraft ${selectedVersion}. " +
+                "That version builds for: ${supportedLoaders.join(', ')}.")
+    }
 }
+
+gradle.ext.szSelectedVersion = selectedVersion
+gradle.ext.szVersionProperties = versionProperties
+gradle.ext.szAvailableVersions = availableVersions
+gradle.ext.szSupportedLoaders = supportedLoaders
+
+requestedLoaders.each { include it }
