@@ -2,37 +2,19 @@
  * Root build for every SeeLeaderZombie variant.
  *
  * There is one copy of the sources (common/, neoforge/, fabric/) and one file per supported
- * Minecraft version under versions/. Selecting a version loads that file's properties into
- * every project, so a build looks like:
+ * Minecraft version under versions/. settings.gradle picks the version and works out which
+ * loaders it can build; this file hands those properties to the subprojects.
  *
- *     ./gradlew build                       # the default version, both loaders
- *     ./gradlew build -Pmc=26.2             # a specific version, both loaders
- *     ./gradlew :fabric:build -Pmc=26.1.1   # one loader, one version
- *     ./build_all.sh                        # every loader x every version
+ *     ./gradlew build                       # the default version, its loaders
+ *     ./gradlew build -Pmc=26.2             # a specific version
+ *     ./gradlew :fabric:build -Pmc=26.1.1 -Ploaders=fabric
+ *     ./gradlew supportedVersions           # what can be built
+ *     ./build_all.sh                        # every supported loader x version pair
  */
 
-def availableVersions() {
-    def dir = rootProject.file('versions')
-    def files = dir.listFiles()
-    if (files == null) {
-        throw new GradleException("Missing versions/ directory at ${dir}")
-    }
-    return files.findAll { it.name.endsWith('.properties') }
-            .collect { it.name - '.properties' }
-            .sort()
-}
-
-def selectedVersion = (project.findProperty('mc') ?: project.property('default_minecraft_version')).toString()
-def versionFile = rootProject.file("versions/${selectedVersion}.properties")
-
-if (!versionFile.isFile()) {
-    throw new GradleException(
-            "Unknown Minecraft version '${selectedVersion}'. Supported: ${availableVersions().join(', ')}.\n" +
-            "Pass one with -Pmc=<version>, or add versions/${selectedVersion}.properties to support it.")
-}
-
-def versionProperties = new Properties()
-versionFile.withInputStream { versionProperties.load(it) }
+def selectedVersion = gradle.ext.szSelectedVersion
+def versionProperties = gradle.ext.szVersionProperties
+def availableVersions = gradle.ext.szAvailableVersions
 
 allprojects {
     // Every per-version coordinate (Minecraft, NeoForge, Fabric API, dependency ranges) reaches
@@ -41,13 +23,22 @@ allprojects {
     versionProperties.each { key, value -> ext.set(key.toString(), value.toString()) }
 }
 
+def versionSummaries = availableVersions.collect { version ->
+    def properties = new Properties()
+    rootProject.file("versions/${version}.properties").withInputStream { properties.load(it) }
+    def loaders = (properties.getProperty('loaders') ?: 'neoforge,fabric')
+            .split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+    "  ${version} -> ${loaders.join(', ')}"
+}
+
 tasks.register('supportedVersions') {
     group = 'help'
-    description = 'Lists the Minecraft versions this repository can build.'
-    def versions = availableVersions()
+    description = 'Lists the Minecraft versions this repository can build, and their loaders.'
+    def summaries = versionSummaries
     def current = selectedVersion
     doLast {
-        println "Supported Minecraft versions: ${versions.join(', ')}"
+        println 'Supported Minecraft versions:'
+        summaries.each { println it }
         println "Currently selected: ${current} (override with -Pmc=<version>)"
     }
 }

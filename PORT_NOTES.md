@@ -1,4 +1,4 @@
-# SeeLeaderZombie — Multi-Loader Notes (MC 26.1, 26.1.1, 26.1.2, 26.2)
+# SeeLeaderZombie — Multi-Loader Notes (MC 26.1 – 26.3-snapshot-6)
 
 ## Layout
 
@@ -13,18 +13,41 @@ versions/  one .properties file per supported Minecraft version
 
 `versions/<minecraft>.properties` is the single source of truth for every per-version
 coordinate: the Minecraft version, the NeoForge version and range, the Fabric loader/API
-versions, and the dependency ranges written into `neoforge.mods.toml` and `fabric.mod.json`.
-The root `build.gradle` loads the selected file and injects its keys into both subprojects, so
-**supporting a new Minecraft version means adding one file** — no source or build script edits.
+versions, the dependency ranges written into `neoforge.mods.toml` and `fabric.mod.json`, and a
+`loaders=` key naming which loaders publish builds for that version. `settings.gradle` reads the
+selected file and includes only those loader projects; `build.gradle` injects the rest of the
+keys. CI derives its matrix from the same directory. So **supporting a new Minecraft version
+means adding one file** — no source, build script or workflow edits, even when only one loader
+has that version.
 
-| Minecraft | NeoForge         | Status | Fabric API       | Status |
-|-----------|------------------|--------|------------------|--------|
-| 26.1      | `26.1.0.19-beta` | Beta   | `0.145.1+26.1`   | Stable |
-| 26.1.1    | `26.1.1.15-beta` | Beta   | `0.155.2+26.1.1` | Stable |
-| 26.1.2    | `26.1.2.84`      | Stable | `0.155.2+26.1.2` | Stable |
-| 26.2      | `26.2.0.32-beta` | Beta   | `0.155.2+26.2`   | Stable |
+| Minecraft       | NeoForge         | Status | Fabric API       | Status   |
+|-----------------|------------------|--------|------------------|----------|
+| 26.1            | `26.1.0.19-beta` | Beta   | `0.145.1+26.1`   | Stable   |
+| 26.1.1          | `26.1.1.15-beta` | Beta   | `0.145.4+26.1.1` | Stable   |
+| 26.1.2          | `26.1.2.84`      | Stable | `0.155.2+26.1.2` | Stable   |
+| 26.2            | `26.2.0.32-beta` | Beta   | `0.155.2+26.2`   | Stable   |
+| 26.3-snapshot-6 | —                | —      | `0.156.1+26.3`   | Snapshot |
 
 `26.1.2` is the default build target and the recommended release.
+
+### 26.3-snapshot-6 is Fabric only
+
+NeoForge publishes no builds for Minecraft snapshots, so `versions/26.3-snapshot-6.properties`
+carries no `neo_*` coordinates and sets `loaders=fabric`. The NeoForge project is then not part
+of the build when that version is selected, and asking for it anyway fails clearly:
+
+```
+> neoforge does not support Minecraft 26.3-snapshot-6. That version builds for: fabric.
+```
+
+Two details worth knowing about the Fabric coordinates. The Minecraft artifact really is
+`26.3-snapshot-6`, while Fabric API releases against it as `+26.3` — the published artifact is
+titled "[26.3-snapshot-6] Fabric API 0.156.1+26.3", so the two strings legitimately differ. And
+`fabric.mod.json` pins that exact snapshot instead of a range, because snapshot names do not
+order the way release versions do and a later snapshot can change the API again.
+
+When NeoForge ships 26.3, add its coordinates to that file and put `neoforge` back in `loaders`;
+nothing else needs to change.
 
 ## What lives where
 
@@ -116,23 +139,29 @@ The Fabric variants were excluded from CI because they did not build. The causes
 ## Building
 
 ```bash
-./gradlew build                       # default version (26.1.2), both loaders
-./gradlew build -Pmc=26.2             # a specific version, both loaders
+./gradlew build                       # default version (26.1.2), its loaders
+./gradlew build -Pmc=26.2             # a specific version
+./gradlew build -Pmc=26.3-snapshot-6  # Fabric only; the NeoForge project is not included
 ./gradlew :neoforge:build -Pmc=26.1 -Ploaders=neoforge   # one loader, one version
-./gradlew supportedVersions           # list supported versions
-./build_all.sh                        # all 8 variants -> builds/
-./build_all.sh --loader fabric        # one loader, every version
+./gradlew supportedVersions           # list versions and their loaders
+./build_all.sh                        # every supported pair -> builds/
+./build_all.sh --loader fabric        # one loader, every version that has it
 ```
 
 Loader plugin versions (`moddev_version`, `loom_version`) live in the root `gradle.properties`
 and can be overridden per invocation, e.g. `-Ploom_version=1.17.17`. The wrapper must stay at
 Gradle 9.5.0 or newer for Loom 1.17.x.
 
-`-Ploaders=<loader>` controls which loader projects are included in the build. Gradle configures
-every included project, so without it a NeoForge-only build still has to resolve the Fabric Loom
-plugin — which is how the Loom/Gradle version mismatch above failed the NeoForge jobs as well as
-the Fabric ones. `build_all.sh` and each CI matrix job pass it, so the eight combinations are
-genuinely independent; combined with `fail-fast: false`, one broken combination cannot hide the
-state of the others.
+`-Ploaders=<loader>` controls which loader projects are included in the build; it defaults to
+whatever the selected version's `loaders=` key lists. Gradle configures every included project,
+so without narrowing it a NeoForge-only build still has to resolve the Fabric Loom plugin —
+which is how the Loom/Gradle version mismatch above failed the NeoForge jobs as well as the
+Fabric ones. `build_all.sh` and each CI matrix job pass it, so the combinations are genuinely
+independent; combined with `fail-fast: false`, one broken combination cannot hide the state of
+the others.
+
+`build_all.sh` skips loader/version pairs that do not exist rather than failing on them, and the
+CI matrix is generated from `versions/` by its own job, so neither needs editing when a version
+is added.
 
 > **JDK Requirement:** Java 25.
